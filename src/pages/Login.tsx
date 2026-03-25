@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Activity, ShieldCheck, Stethoscope, Pill, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const roleConfig = {
   admin: { label: "Admin", icon: ShieldCheck, color: "text-destructive" },
@@ -20,6 +21,7 @@ type RoleKey = keyof typeof roleConfig;
 
 const Login = () => {
   const navigate = useNavigate();
+  const { setRole } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,7 @@ const Login = () => {
     if (data.session) {
       localStorage.setItem("jwt_token", data.session.access_token);
       localStorage.setItem("user_role", selectedRole);
+      setRole(selectedRole);
     }
 
     toast({ title: "Welcome back!", description: `Logged in as ${roleConfig[selectedRole].label}` });

@@ -11,6 +11,7 @@ interface AuthContextType {
   role: AppRole | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  setRole: (role: AppRole | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   loading: true,
   signOut: async () => {},
+  setRole: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, loading, signOut, setRole }}>
       {children}
     </AuthContext.Provider>
   );
