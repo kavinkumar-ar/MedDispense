@@ -40,9 +40,26 @@ const Login = () => {
       return;
     }
 
-    // Optimistically persist session details. The global AuthContext background fetch 
-    // will continuously verify database truth and instantly block unauthorized routing 
-    // attempts inside ProtectedRoute dynamically.
+    // Strictly verify user has the explicitly selected role natively on the backend
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .eq("role", selectedRole)
+      .maybeSingle();
+
+    if (!roleData) {
+      await supabase.auth.signOut();
+      toast({
+        title: "Access denied",
+        description: `Your account does not have ${roleConfig[selectedRole].label} access.`,
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Persist securely verified session details.
     if (data.session) {
       localStorage.setItem("jwt_token", data.session.access_token);
       localStorage.setItem("user_role", selectedRole);

@@ -1,73 +1,64 @@
-# Welcome to your Lovable project
+# MedDispense
 
-## Project info
+MedDispense is a modern, high-performance Pharmacy Queue and Prescription Management System. It is intentionally designed to powerfully streamline daily pharmacy operations, track live patient queues, and rigidly enforce role-based access controls across the entire healthcare team.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Key Features
 
-## How can I edit this code?
+- **Strict Role-Based Access Control (RBAC):** Military-grade secure routing and dashboard access exclusively tailored for `Admin`, `Doctor`, `Pharmacist`, and `Patient` roles. Attempted access to unauthorized routes is instantly blocked natively at the component level.
+- **Live Queue Management:** Real-time visibility into patient wait times, active token numbers, and priority statuses (e.g., Urgent, Elderly).
+- **Pharmacist Workflow:** Dedicated counters displaying specific medical staff, real-time workload monitoring, dynamic inventory-aware drug dispensing, and safety approval flows.
+- **Prescription Tracking:** End-to-end prescription tracking ranging from initial pending reviews to successfully dispensed medications.
+- **Performance Optimized:** Built for speed. It heavily utilizes `@tanstack/react-query` caching and synchronous `localStorage` fallbacks integrated directly with Supabase's secure JWT validation to eliminate rendering stutters.
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+- **Frontend Core:** React, Vite, TypeScript
+- **Styling & UI:** Tailwind CSS, shadcn/ui, Framer Motion
+- **State Management:** `@tanstack/react-query`
+- **Backend & Database:** Dedicated Supabase (PostgreSQL, GoTrue Auth, Edge Functions)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 📦 Local Setup
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Clone the repository:**
+   ```sh
+   git clone <YOUR_GIT_URL>
+   cd quick-dispense-ai-main
+   ```
 
-**Use your preferred IDE**
+2. **Install dependencies:**
+   ```sh
+   npm install
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+3. **Configure Environment Variables:**
+   Create a `.env` file in the root directory and add your dedicated Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL="https://your-project-url.supabase.co"
+   VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-publishable-key"
+   VITE_SUPABASE_PROJECT_ID="your-project-id"
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+4. **Run the Development Server:**
+   ```sh
+   npm run dev
+   ```
 
-Follow these steps:
+## 🗄️ Database Setup & Demo Data
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+This application requires a dedicated Supabase instance to function due to its complex triggers and security rules.
+1. Run `setup_database.sql` directly in your Supabase SQL Editor to build the schemas, User profiles, and RLS policies.
+2. Disable **Confirm Email** inside your Supabase Authentication settings.
+3. Register your primary `Admin`, `Doctor`, and `Pharmacist` accounts via the website, and manually adjust their status in the `user_roles` database table.
+4. *(Optional)* Run `seed_multi_patients.sql` or `seed_data_only.sql` to instantly populate the application with rich, varied dummy records (Patients, Queues, Prescriptions) mapped to your actual doctors.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🔒 Security Architecture
 
-# Step 3: Install the necessary dependencies.
-npm i
+MedDispense employs a strict **"Deny-by-Default"** security mechanism. Unauthorized route access is instantly blocked via synchronous local state verifications that tightly bind to the React Router, guaranteeing zero-latency protection against malicious navigation routing.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🚀 Vercel Deployment
 
-**Edit a file directly in GitHub**
+This project is perfectly optimized for immediate deployment on **Vercel**. 
+Vercel automatically handles the Single Page Application (SPA) `index.html` rewrites required by React Router using the included `vercel.json` configuration file, ensuring no 404 errors ever occur on page refresh.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+*Built initially as a Lovable prototype and extensively architected into a seamless, high-performance production application.*

@@ -24,10 +24,10 @@ interface PrescriptionWithPatient {
 }
 
 const pharmacists = [
-  { id: 1, name: "Dr. Arun Mehta", counter: 1, status: "active", processed: 34, pending: 6, avgTime: "3.2 min", workload: 78 },
-  { id: 2, name: "Dr. Meena Iyer", counter: 2, status: "active", processed: 28, pending: 4, avgTime: "3.8 min", workload: 62 },
-  { id: 3, name: "Dr. Sunil Das", counter: 3, status: "active", processed: 41, pending: 8, avgTime: "2.9 min", workload: 92 },
-  { id: 4, name: "Dr. Kavita Rao", counter: 4, status: "break", processed: 22, pending: 0, avgTime: "3.5 min", workload: 0 },
+  { id: 1, name: "Dr. Palaniappan Manickam", counter: 1, status: "active", processed: 34, pending: 6, avgTime: "3.2 min", workload: 78 },
+  { id: 2, name: "Dr. Sharmila", counter: 2, status: "active", processed: 28, pending: 4, avgTime: "3.8 min", workload: 62 },
+  { id: 3, name: "Dr. Balaji", counter: 3, status: "active", processed: 41, pending: 8, avgTime: "2.9 min", workload: 92 },
+  { id: 4, name: "Dr. Kavya", counter: 4, status: "break", processed: 22, pending: 0, avgTime: "3.5 min", workload: 0 },
 ];
 
 const PharmacistPanel = () => {
