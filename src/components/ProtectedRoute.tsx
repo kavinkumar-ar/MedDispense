@@ -10,6 +10,10 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { session, role, loading } = useAuth();
   const token = localStorage.getItem("jwt_token");
 
+  // Read role synchronously from localStorage to prevent "Access Denied" 
+  // UI flashes during React state-batching delays right after login clicks.
+  const activeRole = role || (localStorage.getItem("user_role") as any);
+
   // Basic JWT structure validation (3 parts separated by dots)
   const isValidJwt = token && token.split('.').length === 3;
 
@@ -25,7 +29,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+  if (allowedRoles && (!activeRole || !allowedRoles.includes(activeRole))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
