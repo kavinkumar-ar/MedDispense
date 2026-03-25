@@ -52,14 +52,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route path="/" element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
-              <Route path="/patient" element={<Suspense fallback={<PageLoader />}><PatientDashboard /></Suspense>} />
-              <Route path="/queue" element={<Suspense fallback={<PageLoader />}><QueueManagement /></Suspense>} />
-              <Route path="/prescriptions" element={<Suspense fallback={<PageLoader />}><Prescriptions /></Suspense>} />
-              <Route path="/doctor" element={<Suspense fallback={<PageLoader />}><DoctorPanel /></Suspense>} />
-              <Route path="/pharmacist" element={<Suspense fallback={<PageLoader />}><PharmacistPanel /></Suspense>} />
-              <Route path="/inventory" element={<Suspense fallback={<PageLoader />}><Inventory /></Suspense>} />
-              <Route path="/analytics" element={<Suspense fallback={<PageLoader />}><Analytics /></Suspense>} />
+              <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "doctor", "pharmacist"]}><Suspense fallback={<PageLoader />}><Dashboard /></Suspense></ProtectedRoute>} />
+              <Route path="/patient" element={<ProtectedRoute allowedRoles={["patient"]}><Suspense fallback={<PageLoader />}><PatientDashboard /></Suspense></ProtectedRoute>} />
+              <Route path="/queue" element={<ProtectedRoute allowedRoles={["admin", "pharmacist", "patient"]}><Suspense fallback={<PageLoader />}><QueueManagement /></Suspense></ProtectedRoute>} />
+              <Route path="/prescriptions" element={<ProtectedRoute allowedRoles={["admin", "doctor", "pharmacist"]}><Suspense fallback={<PageLoader />}><Prescriptions /></Suspense></ProtectedRoute>} />
+              <Route path="/doctor" element={<ProtectedRoute allowedRoles={["admin", "doctor"]}><Suspense fallback={<PageLoader />}><DoctorPanel /></Suspense></ProtectedRoute>} />
+              <Route path="/pharmacist" element={<ProtectedRoute allowedRoles={["admin", "pharmacist"]}><Suspense fallback={<PageLoader />}><PharmacistPanel /></Suspense></ProtectedRoute>} />
+              <Route path="/inventory" element={<ProtectedRoute allowedRoles={["admin", "pharmacist"]}><Suspense fallback={<PageLoader />}><Inventory /></Suspense></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin"]}><Suspense fallback={<PageLoader />}><Analytics /></Suspense></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

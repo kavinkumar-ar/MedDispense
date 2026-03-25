@@ -55,7 +55,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.filter((item) => !role || item.roles.includes(role)).map((item) => {
+        {navItems.filter((item) => role && item.roles.includes(role)).map((item) => {
           const isActive = location.pathname === item.to;
           return (
             <NavLink
