@@ -50,7 +50,14 @@ const Login = () => {
     }
 
     toast({ title: "Welcome back!", description: `Logged in as ${roleConfig[selectedRole].label}` });
-    navigate("/");
+    
+    // Direct users to their appropriate dashboard immediately
+    if (selectedRole === "patient") {
+      navigate("/patient");
+    } else {
+      navigate("/");
+    }
+    
     setLoading(false);
   };
 
