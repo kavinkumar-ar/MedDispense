@@ -61,4 +61,4 @@ This project is perfectly optimized for immediate deployment on **Vercel**.
 Vercel automatically handles the Single Page Application (SPA) `index.html` rewrites required by React Router using the included `vercel.json` configuration file, ensuring no 404 errors ever occur on page refresh.
 
 ---
-*Built initially as a Lovable prototype and extensively architected into a seamless, high-performance production application.*
+
