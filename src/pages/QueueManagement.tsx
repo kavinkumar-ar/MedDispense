@@ -145,6 +145,14 @@ const QueueManagement = () => {
     return `${prefix}-${num}`;
   };
 
+  // Calculate estimated wait based on position in the waiting queue (10 min avg per patient)
+  const AVG_CONSULT_MINUTES = 10;
+  const getEstimatedWait = (entryId: string, allEntries: QueueEntry[]): number => {
+    const waitingEntries = allEntries.filter((e) => e.status === "waiting");
+    const pos = waitingEntries.findIndex((e) => e.id === entryId);
+    return pos >= 0 ? (pos + 1) * AVG_CONSULT_MINUTES : 0;
+  };
+
   const handleAddPatient = async () => {
     if (!newPatientName.trim()) {
       toast.error("Patient name is required");
@@ -388,8 +396,8 @@ const QueueManagement = () => {
                   <Badge className={statusStyles[entry.status] || statusStyles.waiting} variant="secondary">
                     {entry.status.replace("_", " ")}
                   </Badge>
-                  {entry.estimated_wait_minutes && entry.status === "waiting" && (
-                    <span className="text-xs text-muted-foreground">~{entry.estimated_wait_minutes} min</span>
+                  {entry.status === "waiting" && (
+                    <span className="text-xs text-muted-foreground">~{getEstimatedWait(entry.id, filtered as QueueEntry[])} min wait</span>
                   )}
                 </div>
               </motion.div>
@@ -440,8 +448,8 @@ const QueueManagement = () => {
                   <Badge className={statusStyles[entry.status] || statusStyles.waiting} variant="secondary">
                     {entry.status.replace("_", " ")}
                   </Badge>
-                  {entry.estimated_wait_minutes && entry.status === "waiting" && (
-                    <span className="text-xs text-muted-foreground">~{entry.estimated_wait_minutes} min</span>
+                  {entry.status === "waiting" && (
+                    <span className="text-xs text-muted-foreground">~{getEstimatedWait(entry.id, filtered as QueueEntry[])} min wait</span>
                   )}
                   {entry.status === "waiting" && (
                     <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => handleStatusChange(entry.id, "in_progress")}>

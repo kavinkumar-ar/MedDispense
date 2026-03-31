@@ -481,9 +481,9 @@ const PatientDashboard = () => {
                       </span>
                     </td>
                     <td className="py-3">
-                      {entry.estimated_wait_minutes
-                        ? `~${entry.estimated_wait_minutes} min`
-                        : "—"}
+                      {entry.status === "waiting"
+                        ? `~${(liveQueue.filter(e => e.status === "waiting").findIndex(e => e.token_number === entry.token_number) + 1) * 10} min`
+                        : entry.status === "in_progress" ? "Consulting now" : "—"}
                     </td>
                   </tr>
                 ))}

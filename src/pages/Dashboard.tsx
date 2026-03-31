@@ -122,13 +122,13 @@ const Dashboard = () => {
     return <Navigate to="/patient" replace />;
   }
 
+  const AVG_CONSULT_MINUTES = 10;
   const { waitingCount, inProgressCount, totalInQueue, avgWait } = useMemo(() => {
     const total = queueEntries.length;
     const waiting = queueEntries.filter((e) => e.status === "waiting").length;
     const inProgress = queueEntries.filter((e) => e.status === "in_progress").length;
-    const avg = total > 0
-      ? (queueEntries.reduce((sum, e) => sum + (e.estimated_wait_minutes || 0), 0) / total).toFixed(1)
-      : "0";
+    // Avg wait = position-based: waiting patients × avg consultation time
+    const avg = waiting > 0 ? ((waiting * AVG_CONSULT_MINUTES) / 2).toFixed(1) : "0";
     return { waitingCount: waiting, inProgressCount: inProgress, totalInQueue: total, avgWait: avg };
   }, [queueEntries]);
 
@@ -222,7 +222,11 @@ const Dashboard = () => {
                       </Badge>
                     </td>
                     <td className="py-3">{entry.doctor_name || "—"}</td>
-                    <td className="py-3">{entry.estimated_wait_minutes ? `${entry.estimated_wait_minutes} min` : "—"}</td>
+                    <td className="py-3">
+                      {entry.status === "waiting"
+                        ? `~${(queueEntries.filter(e => e.status === "waiting").findIndex(e => e.id === entry.id) + 1) * AVG_CONSULT_MINUTES} min`
+                        : entry.status === "in_progress" ? "Now" : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
