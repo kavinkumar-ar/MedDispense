@@ -165,15 +165,17 @@ const QueueManagement = () => {
         return;
       } else {
         // Securely invoke the remote database trigger bypassing GoTrue validations natively
-        const { data: newUuid, error: walkinError } = await supabase
-          .rpc("create_walkin_patient", { p_name: newPatientName.trim(), p_phone: walkInPhone.trim() || null });
+        const { data: newUuid, error: walkinError } = await (supabase.rpc as any)(
+          "create_walkin_patient", 
+          { p_name: newPatientName.trim(), p_phone: walkInPhone.trim() || null }
+        );
 
         if (walkinError || !newUuid) {
           toast.error("Failed to register walk-in: " + (walkinError?.message || "Internal error"));
           setSubmitting(false);
           return;
         }
-        patientId = newUuid as string;
+        patientId = String(newUuid);
       }
     } else {
       patientId = matchedProfiles[0].user_id;
