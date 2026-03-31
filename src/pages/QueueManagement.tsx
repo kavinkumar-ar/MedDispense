@@ -252,7 +252,7 @@ const QueueManagement = () => {
                   <UserPlus className="h-4 w-4" /> Add Patient
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add Patient to Queue</DialogTitle>
                 </DialogHeader>
@@ -265,7 +265,7 @@ const QueueManagement = () => {
                       onChange={(e) => setNewPatientName(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-4 rounded-md border p-3 bg-muted/40">
+                  <div className="space-y-3 rounded-md border p-3 bg-muted/40">
                     <p className="text-xs text-muted-foreground">If this is a new patient, fill these to auto-register them as a Walk-in:</p>
                     <div className="space-y-2">
                       <Label className="text-primary font-semibold">Walk-In Patient Age</Label>
@@ -306,11 +306,12 @@ const QueueManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Reason (optional)</Label>
-                    <Textarea
-                      placeholder="Reason for visit..."
-                      value={newReason}
-                      onChange={(e) => setNewReason(e.target.value)}
-                    />
+                      <Textarea
+                        placeholder="Reason for visit..."
+                        value={newReason}
+                        onChange={(e) => setNewReason(e.target.value)}
+                        rows={2}
+                      />
                   </div>
                   <Button onClick={handleAddPatient} disabled={submitting} className="w-full">
                     {submitting ? "Processing..." : "Add to Queue"}
