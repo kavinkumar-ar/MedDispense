@@ -162,6 +162,12 @@ const QueueManagement = () => {
       .limit(1);
 
     if (!matchedProfiles || matchedProfiles.length === 0) {
+      if (!walkInAge) {
+        toast.error("Please provide the Patient's Age to register them.");
+        setSubmitting(false);
+        return;
+      }
+
       // Securely invoke the remote database trigger bypassing GoTrue validations natively
       const { data: newUuid, error: walkinError } = await (supabase.rpc as any)(
         "create_walkin_patient", 
@@ -266,7 +272,6 @@ const QueueManagement = () => {
                     />
                   </div>
                   <div className="space-y-3 rounded-md border p-3 bg-muted/40">
-                    <p className="text-xs text-muted-foreground">If this is a new patient, fill these to auto-register them as a Walk-in:</p>
                     <div className="space-y-2">
                       <Label className="text-primary font-semibold">Walk-In Patient Age</Label>
                       <Input

@@ -1,5 +1,5 @@
 -- 1. ADD THE AGE COLUMN NATIVELY TO YOUR PATIENT PROFILES
-ALTER TABLE public.profiles ADD COLUMN age integer DEFAULT null;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS age integer DEFAULT null;
 
 -- 2. SECURELY OVERWRITE THE WALK-IN GENERATOR TO SUPPORT THE NEW AGE PARAMETER
 CREATE OR REPLACE FUNCTION public.create_walkin_patient(p_name text, p_phone text, p_age integer)

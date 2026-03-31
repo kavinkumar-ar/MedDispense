@@ -19,6 +19,7 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const DoctorPanel = lazy(() => import("./pages/DoctorPanel"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/pharmacist" element={<ProtectedRoute allowedRoles={["admin", "pharmacist"]}><Suspense fallback={<PageLoader />}><PharmacistPanel /></Suspense></ProtectedRoute>} />
               <Route path="/inventory" element={<ProtectedRoute allowedRoles={["admin", "pharmacist"]}><Suspense fallback={<PageLoader />}><Inventory /></Suspense></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin"]}><Suspense fallback={<PageLoader />}><Analytics /></Suspense></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Settings /></Suspense></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
