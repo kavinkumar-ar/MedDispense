@@ -133,9 +133,24 @@ const Inventory = () => {
   };
 
   const handleDelete = async (item: InventoryItem) => {
+    if (!confirm(`Delete "${item.medicine_name}" from inventory?`)) return;
+
+    // Optimistically remove from UI immediately
+    queryClient.setQueryData(["inventory"], (old: InventoryItem[] | undefined) =>
+      (old || []).filter((i) => i.id !== item.id)
+    );
+
     const { error } = await supabase.from("inventory").delete().eq("id", item.id);
-    if (error) toast.error("Delete failed: " + error.message);
-    else toast.success(`${item.medicine_name} removed`);
+
+    if (error) {
+      toast.error("Delete failed: " + error.message);
+      // Rollback optimistic update
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    } else {
+      toast.success(`${item.medicine_name} removed`);
+      // Force re-fetch to confirm deletion (handles silent RLS failures)
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    }
   };
 
   const { filtered, lowStockCount, outOfStockCount } = useMemo(() => {
