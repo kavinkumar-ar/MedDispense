@@ -39,6 +39,7 @@ const Prescriptions = () => {
   const { role } = useAuth();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [patientNames, setPatientNames] = useState<Record<string, string>>({});
+  const [patientAges, setPatientAges] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -63,13 +64,16 @@ const Prescriptions = () => {
     if (patientIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, full_name")
+        .select("user_id, full_name, age")
         .in("user_id", patientIds);
       const nameMap: Record<string, string> = {};
-      (profiles || []).forEach((p) => {
+      const ageMap: Record<string, number | null> = {};
+      (profiles as any[])?.forEach((p) => {
         nameMap[p.user_id] = p.full_name;
+        ageMap[p.user_id] = p.age;
       });
       setPatientNames(nameMap);
+      setPatientAges(ageMap);
     }
     setLoading(false);
   };
@@ -180,6 +184,7 @@ const Prescriptions = () => {
                       </div>
                       <p className="mt-0.5 text-sm">
                         {patientNames[rx.patient_id] || "Unknown Patient"}
+                        {patientAges[rx.patient_id] ? ` (${patientAges[rx.patient_id]}y)` : ""}
                         <span className="text-muted-foreground"> • {rx.doctor_name}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">

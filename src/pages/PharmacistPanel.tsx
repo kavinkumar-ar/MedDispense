@@ -21,6 +21,7 @@ interface PrescriptionWithPatient {
   prescribed_at: string;
   patient_id: string;
   patient_name: string;
+  patient_age?: number | null;
 }
 
 const pharmacists = [
@@ -55,15 +56,17 @@ const PharmacistPanel = () => {
     const patientIds = [...new Set(rxData.map((r) => r.patient_id))];
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name")
+      .select("user_id, full_name, age")
       .in("user_id", patientIds);
 
-    const nameMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) ?? []);
+    const nameMap = new Map((profiles as any[])?.map((p) => [p.user_id, p.full_name]) ?? []);
+    const ageMap = new Map((profiles as any[])?.map((p) => [p.user_id, p.age]) ?? []);
 
     setPendingRx(
       rxData.map((r) => ({
         ...r,
         patient_name: nameMap.get(r.patient_id) || "Unknown",
+        patient_age: ageMap.get(r.patient_id) || null,
       }))
     );
     setLoading(false);
@@ -237,7 +240,10 @@ const PharmacistPanel = () => {
                 <div className="flex items-center gap-3 min-w-0">
                   <Badge className="bg-warning/10 text-warning shrink-0" variant="secondary">pending</Badge>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{rx.medication} — {rx.patient_name}</p>
+                    <p className="text-sm font-medium truncate">
+                      {rx.medication} — {rx.patient_name}
+                      {rx.patient_age ? ` (${rx.patient_age}y)` : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {rx.dosage}, {rx.frequency} · Dr. {rx.doctor_name}
                     </p>

@@ -63,17 +63,17 @@ const Dashboard = () => {
     }
   });
 
-  const { data: patientNames = {}, isLoading: isLoadingNames } = useQuery({
+  const { data: patientData = {}, isLoading: isLoadingNames } = useQuery({
     queryKey: ["patient_names", queueData?.map(e => e.patient_id)],
     enabled: !!queueData && queueData.length > 0,
     queryFn: async () => {
       const ids = [...new Set(queueData!.map((e) => e.patient_id))];
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, full_name")
+        .select("user_id, full_name, age")
         .in("user_id", ids);
-      const map: Record<string, string> = {};
-      (profiles || []).forEach((p) => { map[p.user_id] = p.full_name; });
+      const map: Record<string, {name: string, age: number | null}> = {};
+      (profiles as any[])?.forEach((p) => { map[p.user_id] = { name: p.full_name, age: p.age }; });
       return map;
     }
   });
@@ -207,7 +207,10 @@ const Dashboard = () => {
                 {queueEntries.map((entry) => (
                   <tr key={entry.id} className="border-b last:border-0">
                     <td className="py-3 font-medium">{entry.token_number}</td>
-                    <td className="py-3">{patientNames[entry.patient_id] || "Unknown"}</td>
+                    <td className="py-3">
+                      {patientData[entry.patient_id]?.name || "Unknown"}
+                      {patientData[entry.patient_id]?.age ? ` (${patientData[entry.patient_id].age}y)` : ""}
+                    </td>
                     <td className="py-3">
                       <Badge className={priorityStyles[entry.priority] || priorityStyles.normal} variant="secondary">
                         {entry.priority}

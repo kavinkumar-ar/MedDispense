@@ -27,6 +27,7 @@ interface QueueEntry {
   estimated_wait_minutes: number | null;
   created_at: string;
   patient_name?: string;
+  patient_age?: number | null;
 }
 
 interface Prescription {
@@ -106,10 +107,11 @@ const DoctorPanel = () => {
     const patientIds = [...new Set((data || []).map((e) => e.patient_id))];
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name")
+      .select("user_id, full_name, age")
       .in("user_id", patientIds);
 
-    const nameMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) || []);
+    const nameMap = new Map((profiles as any[])?.map((p) => [p.user_id, p.full_name]) || []);
+    const ageMap = new Map((profiles as any[])?.map((p) => [p.user_id, p.age]) || []);
 
     const priorityOrder: Record<string, number> = { urgent: 0, elderly: 1, normal: 2 };
     const statusOrder: Record<string, number> = { in_progress: 0, waiting: 1 };
@@ -118,6 +120,7 @@ const DoctorPanel = () => {
       .map((entry) => ({
         ...entry,
         patient_name: nameMap.get(entry.patient_id) || "Unknown Patient",
+        patient_age: ageMap.get(entry.patient_id) || null,
       }))
       .sort((a, b) => {
         const statusDiff = (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2);
@@ -312,7 +315,10 @@ const DoctorPanel = () => {
                       {entry.token_number}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">{entry.patient_name}</p>
+                      <p className="text-sm font-semibold">
+                        {entry.patient_name}
+                        {entry.patient_age ? ` (${entry.patient_age}y)` : ""}
+                      </p>
                       <p className="text-xs text-muted-foreground">{entry.reason || "General consultation"}</p>
                     </div>
                   </div>

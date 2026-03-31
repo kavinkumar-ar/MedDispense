@@ -65,6 +65,8 @@ const QueueManagement = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isWalkInMode, setIsWalkInMode] = useState(false);
   const [walkInPhone, setWalkInPhone] = useState("");
+  const [walkInAge, setWalkInAge] = useState("");
+  const [patientAges, setPatientAges] = useState<Record<string, number | null>>({});
 
   const fetchQueue = async () => {
     setLoading(true);
@@ -106,13 +108,16 @@ const QueueManagement = () => {
       if (patientIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("user_id, full_name")
+          .select("user_id, full_name, age")
           .in("user_id", patientIds);
         const nameMap: Record<string, string> = {};
-        (profiles || []).forEach((p) => {
+        const ageMap: Record<string, number | null> = {};
+        (profiles as any[])?.forEach((p) => {
           nameMap[p.user_id] = p.full_name;
+          ageMap[p.user_id] = p.age;
         });
         setPatientNames(nameMap);
+        setPatientAges(ageMap);
       }
     }
     setLoading(false);
@@ -167,7 +172,11 @@ const QueueManagement = () => {
         // Securely invoke the remote database trigger bypassing GoTrue validations natively
         const { data: newUuid, error: walkinError } = await (supabase.rpc as any)(
           "create_walkin_patient", 
-          { p_name: newPatientName.trim(), p_phone: walkInPhone.trim() || null }
+          { 
+            p_name: newPatientName.trim(), 
+            p_phone: walkInPhone.trim() || null,
+            p_age: walkInAge ? parseInt(walkInAge) : null
+          }
         );
 
         if (walkinError || !newUuid) {
@@ -203,6 +212,7 @@ const QueueManagement = () => {
       setNewReason("");
       setIsWalkInMode(false);
       setWalkInPhone("");
+      setWalkInAge("");
       fetchQueue();
     }
     setSubmitting(false);
@@ -264,13 +274,24 @@ const QueueManagement = () => {
                     />
                   </div>
                   {isWalkInMode && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2">
-                      <Label className="text-primary font-semibold">Walk-In Contact Details (Optional)</Label>
-                      <Input
-                        placeholder="Phone number..."
-                        value={walkInPhone}
-                        onChange={(e) => setWalkInPhone(e.target.value)}
-                      />
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-primary font-semibold">Walk-In Patient Age</Label>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 45"
+                          value={walkInAge}
+                          onChange={(e) => setWalkInAge(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-primary font-semibold">Walk-In Contact Details (Optional)</Label>
+                        <Input
+                          placeholder="Phone number..."
+                          value={walkInPhone}
+                          onChange={(e) => setWalkInPhone(e.target.value)}
+                        />
+                      </div>
                       <p className="text-[11px] text-muted-foreground mt-1">This dynamically registers a brand new background profile.</p>
                     </motion.div>
                   )}
@@ -394,7 +415,10 @@ const QueueManagement = () => {
                     {entry.token_number}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{patientNames[entry.patient_id] || "Unknown"}</p>
+                    <p className="font-medium truncate">
+                      {patientNames[entry.patient_id] || "Unknown"}
+                      {patientAges[entry.patient_id] ? ` (${patientAges[entry.patient_id]}y)` : ""}
+                    </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3 shrink-0" />
                       <span>{new Date(entry.created_at).toLocaleDateString()} {new Date(entry.created_at).toLocaleTimeString()}</span>
