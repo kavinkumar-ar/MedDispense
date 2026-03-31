@@ -19,7 +19,7 @@ BEGIN
     email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) VALUES (
     '00000000-0000-0000-0000-000000000000', v_user_id, 'authenticated', 'authenticated', 
-    v_dummy_email, crypt(gen_random_uuid()::text, gen_salt('bf')), 
+    v_dummy_email, extensions.crypt(gen_random_uuid()::text, extensions.gen_salt('bf')), 
     now(), '{"provider":"email","providers":["email"]}', 
     json_build_object('full_name', p_name, 'phone', p_phone, 'is_walkin', true), 
     now(), now()
