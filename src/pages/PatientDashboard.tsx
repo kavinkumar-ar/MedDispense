@@ -482,7 +482,11 @@ const PatientDashboard = () => {
                     </td>
                     <td className="py-3">
                       {entry.status === "waiting"
-                        ? `~${(liveQueue.filter(e => e.status === "waiting").findIndex(e => e.token_number === entry.token_number) + 1) * 10} min`
+                        ? (() => {
+                            const waitingOnly = liveQueue.filter(e => e.status === "waiting");
+                            const pos = waitingOnly.findIndex(e => e.token_number === entry.token_number);
+                            return `~${(pos + 1) * 10} min`;
+                          })()
                         : entry.status === "in_progress" ? "Consulting now" : "—"}
                     </td>
                   </tr>

@@ -359,7 +359,11 @@ const QueueManagement = () => {
           <p className="text-sm text-muted-foreground">No patients in queue.</p>
         ) : role === "patient" ? (
           <AnimatePresence>
-            {(filtered as LiveQueueEntry[]).map((entry, idx) => (
+            {(() => {
+              const waitingOnly = (filtered as LiveQueueEntry[]).filter(e => e.status === "waiting");
+              return (filtered as LiveQueueEntry[]).map((entry, idx) => {
+                const waitPos = waitingOnly.findIndex(e => e.token_number === entry.token_number);
+                return (
               <motion.div
                 key={entry.token_number + idx}
                 layout
@@ -397,11 +401,13 @@ const QueueManagement = () => {
                     {entry.status.replace("_", " ")}
                   </Badge>
                   {entry.status === "waiting" && (
-                    <span className="text-xs text-muted-foreground">~{(idx + 1) * AVG_CONSULT_MINUTES} min wait</span>
+                    <span className="text-xs text-muted-foreground">~{(waitPos + 1) * AVG_CONSULT_MINUTES} min wait</span>
                   )}
                 </div>
               </motion.div>
-            ))}
+              );
+              });
+            })()}
           </AnimatePresence>
         ) : (
           <AnimatePresence>
