@@ -63,7 +63,6 @@ const QueueManagement = () => {
   const [newDoctorName, setNewDoctorName] = useState("");
   const [newReason, setNewReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [isWalkInMode, setIsWalkInMode] = useState(false);
   const [walkInPhone, setWalkInPhone] = useState("");
   const [walkInAge, setWalkInAge] = useState("");
   const [patientAges, setPatientAges] = useState<Record<string, number | null>>({});
@@ -163,29 +162,23 @@ const QueueManagement = () => {
       .limit(1);
 
     if (!matchedProfiles || matchedProfiles.length === 0) {
-      if (!isWalkInMode) {
-        toast.info("Patient not found. Walk-in registration unlocked.");
-        setIsWalkInMode(true);
+      // Securely invoke the remote database trigger bypassing GoTrue validations natively
+      const { data: newUuid, error: walkinError } = await (supabase.rpc as any)(
+        "create_walkin_patient", 
+        { 
+          p_name: newPatientName.trim(), 
+          p_phone: walkInPhone.trim() || null,
+          p_age: walkInAge ? parseInt(walkInAge) : null
+        }
+      );
+
+      if (walkinError || !newUuid) {
+        toast.error("Failed to register walk-in: " + (walkinError?.message || "Internal error"));
         setSubmitting(false);
         return;
-      } else {
-        // Securely invoke the remote database trigger bypassing GoTrue validations natively
-        const { data: newUuid, error: walkinError } = await (supabase.rpc as any)(
-          "create_walkin_patient", 
-          { 
-            p_name: newPatientName.trim(), 
-            p_phone: walkInPhone.trim() || null,
-            p_age: walkInAge ? parseInt(walkInAge) : null
-          }
-        );
-
-        if (walkinError || !newUuid) {
-          toast.error("Failed to register walk-in: " + (walkinError?.message || "Internal error"));
-          setSubmitting(false);
-          return;
-        }
-        patientId = String(newUuid);
       }
+      patientId = String(newUuid);
+      toast.success("Walk-in profile dynamically created!");
     } else {
       patientId = matchedProfiles[0].user_id;
     }
@@ -210,7 +203,6 @@ const QueueManagement = () => {
       setNewPriority("normal");
       setNewDoctorName("");
       setNewReason("");
-      setIsWalkInMode(false);
       setWalkInPhone("");
       setWalkInAge("");
       fetchQueue();
@@ -254,7 +246,7 @@ const QueueManagement = () => {
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
           {role && role !== "patient" && (
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if(!open) setIsWalkInMode(false); }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); }}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <UserPlus className="h-4 w-4" /> Add Patient
@@ -273,28 +265,26 @@ const QueueManagement = () => {
                       onChange={(e) => setNewPatientName(e.target.value)}
                     />
                   </div>
-                  {isWalkInMode && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-primary font-semibold">Walk-In Patient Age</Label>
-                        <Input
-                          type="number"
-                          placeholder="e.g. 45"
-                          value={walkInAge}
-                          onChange={(e) => setWalkInAge(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-primary font-semibold">Walk-In Contact Details (Optional)</Label>
-                        <Input
-                          placeholder="Phone number..."
-                          value={walkInPhone}
-                          onChange={(e) => setWalkInPhone(e.target.value)}
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1">This dynamically registers a brand new background profile.</p>
-                    </motion.div>
-                  )}
+                  <div className="space-y-4 rounded-md border p-3 bg-muted/40">
+                    <p className="text-xs text-muted-foreground">If this is a new patient, fill these to auto-register them as a Walk-in:</p>
+                    <div className="space-y-2">
+                      <Label className="text-primary font-semibold">Walk-In Patient Age</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 45"
+                        value={walkInAge}
+                        onChange={(e) => setWalkInAge(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-primary font-semibold">Walk-In Contact Details (Optional)</Label>
+                      <Input
+                        placeholder="Phone number..."
+                        value={walkInPhone}
+                        onChange={(e) => setWalkInPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label>Priority</Label>
                     <Select value={newPriority} onValueChange={setNewPriority}>
@@ -323,7 +313,7 @@ const QueueManagement = () => {
                     />
                   </div>
                   <Button onClick={handleAddPatient} disabled={submitting} className="w-full">
-                    {submitting ? "Processing..." : isWalkInMode ? "Register Walk-In & Add to Queue" : "Add to Queue"}
+                    {submitting ? "Processing..." : "Add to Queue"}
                   </Button>
                 </div>
               </DialogContent>
