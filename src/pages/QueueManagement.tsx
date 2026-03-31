@@ -397,7 +397,7 @@ const QueueManagement = () => {
                     {entry.status.replace("_", " ")}
                   </Badge>
                   {entry.status === "waiting" && (
-                    <span className="text-xs text-muted-foreground">~{getEstimatedWait(entry.id, filtered as QueueEntry[])} min wait</span>
+                    <span className="text-xs text-muted-foreground">~{(idx + 1) * AVG_CONSULT_MINUTES} min wait</span>
                   )}
                 </div>
               </motion.div>
