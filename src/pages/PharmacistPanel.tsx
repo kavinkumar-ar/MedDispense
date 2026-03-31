@@ -142,6 +142,17 @@ const PharmacistPanel = () => {
       if (remaining > 0 && remaining <= 20) {
         toast.warning(`Low stock alert: "${rx.medication}" has only ${remaining} units left`);
       }
+      // Log the dispense event to inventory history
+      await (supabase as any).from("inventory_history").insert({
+        inventory_id: stockItem.id,
+        medicine_name: rx.medication,
+        change_type: "removed",
+        quantity_before: stockItem.quantity,
+        quantity_after: remaining,
+        quantity_changed: -1,
+        reason: `Dispensed via prescription #${rx.id.slice(0, 8)}`,
+        performed_by: (await supabase.auth.getUser()).data.user?.id || null,
+      });
       setSelectedRx(null);
       setDrugCheckOpen(false);
       setDrugCheckTarget(null);

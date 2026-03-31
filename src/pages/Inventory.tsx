@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  Package, AlertTriangle, Plus, Search, Edit2, Trash2, Save, X, TrendingDown, Loader2
+  Package, AlertTriangle, Plus, Search, Edit2, Trash2, Save, X, TrendingDown, Loader2, History, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 interface InventoryItem {
@@ -29,6 +30,18 @@ interface InventoryItem {
   updated_at: string;
 }
 
+interface InventoryHistory {
+  id: string;
+  inventory_id: string | null;
+  medicine_name: string;
+  change_type: "added" | "removed" | "deleted" | "edited";
+  quantity_before: number | null;
+  quantity_after: number | null;
+  quantity_changed: number | null;
+  reason: string | null;
+  created_at: string;
+}
+
 const emptyForm = {
   medicine_name: "",
   generic_name: "",
@@ -43,12 +56,14 @@ const emptyForm = {
 
 const Inventory = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory"],
@@ -57,14 +72,43 @@ const Inventory = () => {
         .from("inventory")
         .select("*")
         .order("medicine_name");
-
-      if (error) {
-        toast.error("Failed to load inventory");
-        return [];
-      }
+      if (error) { toast.error("Failed to load inventory"); return []; }
       return (data as InventoryItem[]) || [];
     }
   });
+
+  const { data: history = [] } = useQuery({
+    queryKey: ["inventory_history"],
+    enabled: showHistory,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("inventory_history")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) return [];
+      return (data as InventoryHistory[]) || [];
+    }
+  });
+
+  // Helper to log a history entry
+  const logHistory = async (params: {
+    inventory_id: string | null;
+    medicine_name: string;
+    change_type: InventoryHistory["change_type"];
+    quantity_before: number | null;
+    quantity_after: number | null;
+    reason: string;
+  }) => {
+    await (supabase as any).from("inventory_history").insert({
+      ...params,
+      quantity_changed: params.quantity_after !== null && params.quantity_before !== null
+        ? params.quantity_after - params.quantity_before
+        : null,
+      performed_by: user?.id || null,
+    });
+    queryClient.invalidateQueries({ queryKey: ["inventory_history"] });
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -120,12 +164,38 @@ const Inventory = () => {
 
     if (editItem) {
       const { error } = await supabase.from("inventory").update(payload).eq("id", editItem.id);
-      if (error) toast.error("Update failed: " + error.message);
-      else toast.success("Inventory updated");
+      if (error) {
+        toast.error("Update failed: " + error.message);
+      } else {
+        toast.success("Inventory updated");
+        // Log the quantity change
+        const changeType = payload.quantity > editItem.quantity ? "added"
+          : payload.quantity < editItem.quantity ? "removed" : "edited";
+        await logHistory({
+          inventory_id: editItem.id,
+          medicine_name: editItem.medicine_name,
+          change_type: changeType,
+          quantity_before: editItem.quantity,
+          quantity_after: payload.quantity,
+          reason: "Manual edit",
+        });
+      }
     } else {
-      const { error } = await supabase.from("inventory").insert(payload);
-      if (error) toast.error("Insert failed: " + error.message);
-      else toast.success("Medicine added to inventory");
+      const { data: inserted, error } = await supabase
+        .from("inventory").insert(payload).select().single();
+      if (error) {
+        toast.error("Insert failed: " + error.message);
+      } else {
+        toast.success("Medicine added to inventory");
+        await logHistory({
+          inventory_id: (inserted as any)?.id || null,
+          medicine_name: payload.medicine_name,
+          change_type: "added",
+          quantity_before: 0,
+          quantity_after: payload.quantity,
+          reason: "New medicine added",
+        });
+      }
     }
 
     setSaving(false);
@@ -140,15 +210,23 @@ const Inventory = () => {
       (old || []).filter((i) => i.id !== item.id)
     );
 
+    // Log deletion before removing (so inventory_id FK still resolves)
+    await logHistory({
+      inventory_id: item.id,
+      medicine_name: item.medicine_name,
+      change_type: "deleted",
+      quantity_before: item.quantity,
+      quantity_after: 0,
+      reason: "Medicine deleted from inventory",
+    });
+
     const { error } = await supabase.from("inventory").delete().eq("id", item.id);
 
     if (error) {
       toast.error("Delete failed: " + error.message);
-      // Rollback optimistic update
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
     } else {
       toast.success(`${item.medicine_name} removed`);
-      // Force re-fetch to confirm deletion (handles silent RLS failures)
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
     }
   };
@@ -297,6 +375,71 @@ const Inventory = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Stock Change History Panel */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="stat-card">
+        <button
+          className="flex w-full items-center justify-between"
+          onClick={() => setShowHistory((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" />
+            <span className="font-heading text-sm font-semibold">Stock Change History</span>
+          </div>
+          {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+
+        {showHistory && (
+          <div className="mt-4">
+            {history.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No stock changes recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="pb-2 font-medium">Medicine</th>
+                      <th className="pb-2 font-medium">Change</th>
+                      <th className="pb-2 font-medium">Before</th>
+                      <th className="pb-2 font-medium">After</th>
+                      <th className="pb-2 font-medium">Reason</th>
+                      <th className="pb-2 font-medium">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(history as InventoryHistory[]).map((h) => (
+                      <tr key={h.id} className="border-b last:border-0">
+                        <td className="py-2 font-medium">{h.medicine_name}</td>
+                        <td className="py-2">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              h.change_type === "added" ? "bg-success/10 text-success" :
+                              h.change_type === "removed" ? "bg-warning/10 text-warning" :
+                              h.change_type === "deleted" ? "bg-destructive/10 text-destructive" :
+                              "bg-muted text-muted-foreground"
+                            }
+                          >
+                            {h.change_type === "added" ? `+${h.quantity_changed ?? ""}` :
+                             h.change_type === "removed" ? `${h.quantity_changed ?? ""}` :
+                             h.change_type}
+                          </Badge>
+                        </td>
+                        <td className="py-2 text-muted-foreground">{h.quantity_before ?? "—"}</td>
+                        <td className="py-2 text-muted-foreground">{h.quantity_after ?? "—"}</td>
+                        <td className="py-2 text-muted-foreground truncate max-w-[160px]">{h.reason || "—"}</td>
+                        <td className="py-2 text-muted-foreground whitespace-nowrap">
+                          {new Date(h.created_at).toLocaleDateString()} {new Date(h.created_at).toLocaleTimeString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
