@@ -27,6 +27,7 @@ interface QueueEntry {
 
 interface LiveQueueEntry {
   token_number: string;
+  patient_display_name: string;
   priority: string;
   status: string;
   doctor_name: string | null;
@@ -358,57 +359,40 @@ const QueueManagement = () => {
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground">No patients in queue.</p>
         ) : role === "patient" ? (
-          <AnimatePresence>
-            {(() => {
-              const waitingOnly = (filtered as LiveQueueEntry[]).filter(e => e.status === "waiting");
-              return (filtered as LiveQueueEntry[]).map((entry, idx) => {
-                const waitPos = waitingOnly.findIndex(e => e.token_number === entry.token_number);
-                return (
-              <motion.div
-                key={entry.token_number + idx}
-                layout
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className={`stat-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${entry.is_mine ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-heading text-xs font-bold text-primary">
-                    {entry.token_number}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">
-                      {entry.is_mine ? "You" : `Patient #${idx + 1}`}
-                      {entry.is_mine && <Badge className="ml-2 bg-primary/10 text-primary" variant="secondary">YOU</Badge>}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3 shrink-0" />
-                      <span>{new Date(entry.created_at).toLocaleDateString()} {new Date(entry.created_at).toLocaleTimeString()}</span>
-                      {entry.doctor_name && (
-                        <>
-                          <span>•</span>
-                          <span>{entry.doctor_name}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Badge className={priorityStyles[entry.priority] || priorityStyles.normal} variant="secondary">
-                    {entry.priority}
-                  </Badge>
-                  <Badge className={statusStyles[entry.status] || statusStyles.waiting} variant="secondary">
-                    {entry.status.replace("_", " ")}
-                  </Badge>
-                  {entry.status === "waiting" && (
-                    <span className="text-xs text-muted-foreground">~{(waitPos + 1) * AVG_CONSULT_MINUTES} min wait</span>
-                  )}
-                </div>
-              </motion.div>
-              );
-              });
-            })()}
-          </AnimatePresence>
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="px-4 py-3 font-medium text-left">Token</th>
+                  <th className="px-4 py-3 font-medium text-left">Patient</th>
+                  <th className="px-4 py-3 font-medium text-left">Doctor</th>
+                  <th className="px-4 py-3 font-medium text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(filtered as LiveQueueEntry[]).map((entry, idx) => (
+                  <tr key={idx} className="border-b hover:bg-muted/50">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {entry.token_number}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Badge variant="outline" className={entry.is_mine ? "border-primary text-primary" : "text-muted-foreground"}>
+                        {entry.patient_display_name}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                      {entry.doctor_name || "Any Available"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Badge className={statusStyles[entry.status] || statusStyles.waiting} variant="secondary">
+                        {entry.status.replace("_", " ")}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <AnimatePresence>
             {(filtered as QueueEntry[]).map((entry) => (

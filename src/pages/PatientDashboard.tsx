@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ interface QueueEntry {
 
 interface LiveQueueItem {
   token_number: string;
+  patient_display_name: string;
   priority: string;
   status: string;
   doctor_name: string | null;
@@ -432,6 +434,7 @@ const PatientDashboard = () => {
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="pb-2 font-medium">#</th>
                   <th className="pb-2 font-medium">Token</th>
+                  <th className="pb-2 font-medium text-center">Patient</th>
                   <th className="pb-2 font-medium">Doctor</th>
                   <th className="pb-2 font-medium">Priority</th>
                   <th className="pb-2 font-medium">Status</th>
@@ -451,11 +454,11 @@ const PatientDashboard = () => {
                     <td className="py-3 text-muted-foreground">{index + 1}</td>
                     <td className="py-3 font-medium">
                       {entry.token_number}
-                      {entry.is_mine && (
-                        <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                          YOU
-                        </span>
-                      )}
+                    </td>
+                    <td className="py-3 text-center">
+                      <Badge variant="outline" className={entry.is_mine ? "border-primary text-primary" : "text-muted-foreground"}>
+                        {entry.patient_display_name}
+                      </Badge>
                     </td>
                     <td className="py-3">{entry.doctor_name || "Any"}</td>
                     <td className="py-3">
