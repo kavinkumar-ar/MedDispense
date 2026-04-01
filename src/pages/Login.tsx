@@ -145,6 +145,14 @@ const Login = () => {
                   required
                 />
               </div>
+              <div className="flex items-center justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors hover:underline"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Signing in..." : `Sign in as ${roleConfig[selectedRole].label}`}
               </Button>
