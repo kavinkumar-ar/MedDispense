@@ -194,19 +194,20 @@ export const DrugCheckDialog = ({
                 </div>
               )}
 
-              {/* Override section for warnings/dangers or service errors */}
-              {( (result && result.severity !== "safe") || error ) && showOverride && (
-                <div className="rounded-lg border-2 border-warning p-3 space-y-2">
-                  <p className="text-sm font-medium">Override Reason (required):</p>
-                  <Textarea
-                    placeholder="Explain why you're proceeding despite the warning..."
-                    value={overrideReason}
-                    onChange={(e) => setOverrideReason(e.target.value)}
-                    className="min-h-[60px]"
-                  />
-                </div>
-              )}
             </>
+          )}
+
+          {/* Override section for warnings/dangers or service errors */}
+          {((result && result.severity !== "safe") || error) && showOverride && (
+            <div className="rounded-lg border-2 border-warning p-3 space-y-2 mt-4">
+              <p className="text-sm font-medium">Override Reason (required):</p>
+              <Textarea
+                placeholder="Explain why you're proceeding despite the warning..."
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                className="min-h-[60px]"
+              />
+            </div>
           )}
         </div>
 
