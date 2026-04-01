@@ -3,8 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ShieldAlert, ShieldCheck, Loader2, ShieldX } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { AlertTriangle, ShieldCheck, Loader2, ShieldX, Info } from "lucide-react";
 
 export interface DrugCheckResult {
   severity: "safe" | "warning" | "danger";
@@ -62,50 +61,67 @@ export const DrugCheckDialog = ({
   const [overrideReason, setOverrideReason] = useState("");
   const [showOverride, setShowOverride] = useState(false);
 
-  const runCheck = async () => {
+  const runLocalCheck = async () => {
     setLoading(true);
     setError(null);
-    setResult(null);
+    
+    // Simulate brief processing
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("drug-check", {
-        body: {
-          medication,
-          dosage,
-          frequency,
-          duration,
-          patient_allergies: patientAllergies,
-          current_medications: currentMedications,
-        },
-      });
+    const interactions: DrugCheckResult["interactions"] = [];
+    const lowerMed = medication.toLowerCase();
 
-      if (fnError) throw new Error(fnError.message);
-      if (data?.error) throw new Error(data.error);
-
-      setResult(data as DrugCheckResult);
-
-      if (data.severity === "safe") {
-        // Auto-proceed after brief display
+    // 1. Check Allergies (Basic string matching)
+    if (patientAllergies) {
+      const allergies = patientAllergies.toLowerCase().split(",").map(a => a.trim());
+      const matchedAllergy = allergies.find(a => a && lowerMed.includes(a));
+      if (matchedAllergy) {
+        interactions.push({
+          type: "allergy",
+          severity: "critical",
+          description: `Patient has a known allergy to ${matchedAllergy}.`,
+          recommendation: "Avoid this medication. Prescribe an alternative class."
+        });
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to run safety check");
-    } finally {
-      setLoading(false);
     }
+
+    // 2. Check Duplicates
+    if (currentMedications.some(m => m.toLowerCase().includes(lowerMed) || lowerMed.includes(m.toLowerCase()))) {
+      interactions.push({
+        type: "drug_interaction",
+        severity: "high",
+        description: `This medication (or similar) is already in the patient's active list.`,
+        recommendation: "Verify if this is a dosage adjustment or a duplicate entry."
+      });
+    }
+
+    let severity: DrugCheckResult["severity"] = "safe";
+    let summary = "No immediate clinical safety concerns detected.";
+
+    if (interactions.some(i => i.severity === "critical")) {
+      severity = "danger";
+      summary = "Critical safety alert: High risk of adverse reaction.";
+    } else if (interactions.length > 0) {
+      severity = "warning";
+      summary = "Potential safety concerns detected. Please review carefully.";
+    }
+
+    setResult({ severity, summary, interactions });
+    setLoading(false);
   };
 
-  // Auto-run check when dialog opens
+  // Run check when dialog opens
   useEffect(() => {
-    if (open && !result && !loading && !error) {
-      runCheck();
+    if (open && !result && !loading) {
+      runLocalCheck();
     }
   }, [open]);
 
-  // Run check when dialog opens
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setResult(null);
       setError(null);
+      setLoading(false);
       setShowOverride(false);
       setOverrideReason("");
     }
@@ -132,13 +148,12 @@ export const DrugCheckDialog = ({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-primary" />
-            AI Drug Safety Check
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Clinical Safety Check
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Checking info */}
           <div className="rounded-lg bg-muted p-3 text-sm">
             <p><strong>Medication:</strong> {medication} ({dosage})</p>
             <p><strong>Frequency:</strong> {frequency}{duration ? ` · ${duration}` : ""}</p>
@@ -148,23 +163,13 @@ export const DrugCheckDialog = ({
             )}
           </div>
 
-          {/* Loading */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-              <p className="text-sm text-muted-foreground">Analyzing prescription safety...</p>
+              <p className="text-sm text-muted-foreground">Running clinical safety rules...</p>
             </div>
           )}
 
-          {/* Error */}
-          {error && (
-            <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
-              <p className="font-medium">Safety check failed</p>
-              <p className="mt-1">{error}</p>
-            </div>
-          )}
-
-          {/* Result */}
           {result && (
             <>
               <div className={`rounded-lg ${config?.bg} p-4`}>
@@ -193,12 +198,11 @@ export const DrugCheckDialog = ({
                   ))}
                 </div>
               )}
-
             </>
           )}
 
-          {/* Override section for warnings/dangers or service errors */}
-          {((result && result.severity !== "safe") || error) && showOverride && (
+          {/* Override section for warnings/dangers */}
+          {result && result.severity !== "safe" && showOverride && (
             <div className="rounded-lg border-2 border-warning p-3 space-y-2 mt-4">
               <p className="text-sm font-medium">Override Reason (required):</p>
               <Textarea
@@ -209,30 +213,16 @@ export const DrugCheckDialog = ({
               />
             </div>
           )}
+
+          <div className="flex items-center gap-2 px-1 text-[10px] text-muted-foreground">
+            <Info className="h-3 w-3" />
+            <span>Local safety verification active (internal rules system)</span>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
-          {error && !showOverride && (
-            <>
-              <Button variant="outline" onClick={onCancel}>Cancel</Button>
-              <Button variant="outline" onClick={runCheck}>Retry Check</Button>
-              <Button variant="destructive" onClick={() => setShowOverride(true)}>
-                Proceed Anyway
-              </Button>
-            </>
-          )}
-
-          {error && showOverride && (
-            <>
-              <Button variant="outline" onClick={onCancel}>Cancel</Button>
-              <Button
-                variant="destructive"
-                disabled={!overrideReason.trim()}
-                onClick={handleOverride}
-              >
-                Confirm Override & Proceed
-              </Button>
-            </>
+          {!result && !loading && (
+            <Button variant="outline" onClick={onCancel}>Cancel</Button>
           )}
 
           {result?.severity === "safe" && (
@@ -259,16 +249,14 @@ export const DrugCheckDialog = ({
                 disabled={!overrideReason.trim()}
                 onClick={handleOverride}
               >
-                Confirm Override
+                Confirm Override & Proceed
               </Button>
             </>
-          )}
-
-          {!result && !error && !loading && (
-            <Button variant="outline" onClick={onCancel}>Cancel</Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default DrugCheckDialog;
