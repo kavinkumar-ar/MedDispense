@@ -193,6 +193,9 @@ const DoctorPanel = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "queue_entries" }, () => {
         fetchQueue();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "prescriptions" }, () => {
+        fetchQueue();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -546,16 +549,36 @@ const DoctorPanel = () => {
                                     </Badge>
                                   </div>
                                 </div>
-                                <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>By {rx.doctor_name}</span>
-                                  <span>{new Date(rx.prescribed_at).toLocaleDateString()}</span>
-                                </div>
-                                {rx.notes && (
-                                  <p className="mt-1 text-xs italic text-muted-foreground border-t pt-1">
-                                    {rx.notes}
-                                  </p>
-                                )}
-                              </div>
+                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                   <span>By {rx.doctor_name}</span>
+                                   <span>{new Date(rx.prescribed_at).toLocaleDateString()}</span>
+                                 </div>
+                                 
+                                 {rx.status === "rejected" && (
+                                   <div className="mt-2 flex flex-col gap-2">
+                                     {rx.rejection_reason && (
+                                       <p className="text-xs text-destructive bg-destructive/10 p-2 rounded italic">
+                                         Reason: {rx.rejection_reason}
+                                       </p>
+                                     )}
+                                     <Button 
+                                       size="sm" 
+                                       variant="destructive" 
+                                       className="h-7 text-[10px] w-fit"
+                                       onClick={() => handleFixPrescription(rx)}
+                                     >
+                                       <Pill className="mr-1 h-3 w-3" />
+                                       Fix & Re-prescribe
+                                     </Button>
+                                   </div>
+                                 )}
+
+                                 {rx.notes && (
+                                   <p className="mt-1 text-xs italic text-muted-foreground border-t pt-1">
+                                     {rx.notes}
+                                   </p>
+                                 )}
+                               </div>
                             ))}
                           </div>
                         )}
