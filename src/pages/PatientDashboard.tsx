@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface QueueEntry {
@@ -92,6 +93,12 @@ const PatientDashboard = () => {
   const [reason, setReason] = useState("");
   const [priority, setPriority] = useState("normal");
   const [doctorName, setDoctorName] = useState("");
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+
+  // Profile state
+  const [profileName, setProfileName] = useState("");
+  const [profileAge, setProfileAge] = useState<number | "">("");
+  const [profileAllergies, setProfileAllergies] = useState("");
 
   const fetchData = async () => {
     if (!user) return;
@@ -114,12 +121,20 @@ const PatientDashboard = () => {
         .select("*")
         .eq("patient_id", user.id)
         .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").eq("user_id", user.id).single(),
     ]);
+
 
     if (queueRes.data) setQueueEntries(queueRes.data);
     if (prescRes.data) setPrescriptions(prescRes.data);
     if (liveQueueRes.data) setLiveQueue(liveQueueRes.data as LiveQueueItem[]);
     if (billsRes.data) setBills(billsRes.data);
+    
+    if (profileRes.data) {
+      setProfileName(profileRes.data.full_name || "");
+      setProfileAge(profileRes.data.age || "");
+      setProfileAllergies(profileRes.data.allergies || "");
+    }
     setLoading(false);
   };
 
@@ -394,6 +409,29 @@ const PatientDashboard = () => {
     setSubmitting(false);
   };
 
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    setSubmitting(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: profileName,
+        age: profileAge || null,
+        allergies: profileAllergies || null,
+      })
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast.error("Failed to update profile: " + error.message);
+    } else {
+      toast.success("Profile updated successfully!");
+      setEditProfileOpen(false);
+      fetchData();
+    }
+    setSubmitting(false);
+  };
+
   const activeQueue = queueEntries.filter(
     (e) => e.status === "waiting" || e.status === "in_progress"
   );
@@ -410,19 +448,75 @@ const PatientDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-bold">My Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Track your queue position and prescriptions
-          </p>
+          <h1 className="font-heading text-2xl font-bold">Patient Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Manage your clinic visits and prescriptions</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Request Doctor Visit
-            </Button>
-          </DialogTrigger>
+        
+        <div className="flex flex-wrap gap-2">
+          {/* Edit Profile Dialog */}
+          <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 h-9">
+                <Plus className="h-4 w-4 rotate-45" />
+                Edit Profile
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                   Edit Your Profile
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input 
+                    id="name"
+                    placeholder="Enter your full name" 
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="age">Age</Label>
+                  <Input 
+                    id="age"
+                    type="number"
+                    placeholder="Enter your age" 
+                    value={profileAge}
+                    onChange={(e) => setProfileAge(e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="allergies">Allergies</Label>
+                  <Textarea 
+                    id="allergies"
+                    placeholder="List your allergies (e.g. Peanuts, Penicillin). State 'None' if none." 
+                    value={profileAllergies}
+                    onChange={(e) => setProfileAllergies(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleUpdateProfile} 
+                className="w-full" 
+                disabled={submitting || !profileName}
+              >
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Profile Changes"}
+              </Button>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 h-9">
+                <Plus className="h-4 w-4" />
+                Request Doctor Visit
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Request to See a Doctor</DialogTitle>
@@ -477,6 +571,7 @@ const PatientDashboard = () => {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
