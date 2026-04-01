@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Clock, Pill, Stethoscope, Plus, Loader2, AlertCircle } from "lucide-react";
+import { Clock, Pill, Stethoscope, Plus, Loader2, AlertCircle, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -589,10 +589,11 @@ const PatientDashboard = () => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
                         onClick={() => handleDownloadBill(bill, rx?.medication || 'Medication')}
+                        title="Download Bill"
                       >
-                        <Plus className="h-4 w-4 rotate-45" /> {/* Using Plus rotated as a subtle download indicator, or fileicon if preferred */}
+                        <Download className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
