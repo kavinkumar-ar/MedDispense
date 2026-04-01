@@ -39,6 +39,9 @@ const PharmacistPanel = () => {
   const [drugCheckTarget, setDrugCheckTarget] = useState<PrescriptionWithPatient | null>(null);
   const [patientAllergies, setPatientAllergies] = useState<string | null>(null);
   const [patientMedications, setPatientMedications] = useState<string[]>([]);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectTarget, setRejectTarget] = useState<PrescriptionWithPatient | null>(null);
 
   const fetchPending = async () => {
     const { data: rxData } = await supabase
@@ -160,16 +163,32 @@ const PharmacistPanel = () => {
     }
   };
 
-  const handleReject = async (rx: PrescriptionWithPatient) => {
+  const handleReject = (rx: PrescriptionWithPatient) => {
+    setRejectTarget(rx);
+    setRejectReason("");
+    setRejectDialogOpen(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTarget || !rejectReason.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+
     const { error } = await supabase
       .from("prescriptions")
-      .update({ status: "rejected" })
-      .eq("id", rx.id);
+      .update({ 
+        status: "rejected",
+        rejection_reason: rejectReason.trim()
+      } as any)
+      .eq("id", rejectTarget.id);
 
     if (error) {
       toast.error("Failed to reject: " + error.message);
     } else {
-      toast.success(`Prescription for ${rx.medication} rejected`);
+      toast.success(`Prescription for ${rejectTarget.medication} rejected`);
+      setRejectDialogOpen(false);
+      setRejectTarget(null);
       setSelectedRx(null);
       fetchPending();
     }
@@ -326,6 +345,32 @@ const PharmacistPanel = () => {
           onCancel={() => { setDrugCheckOpen(false); setDrugCheckTarget(null); }}
         />
       )}
+      {/* Rejection Reason Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reason for Rejection</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="reason" className="text-sm font-medium text-muted-foreground">
+                Please provide a brief reason for rejecting this prescription:
+              </label>
+              <textarea
+                id="reason"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="e.g. Out of stock, Incorrect dosage, Medical interaction..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmReject}>Confirm Rejection</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

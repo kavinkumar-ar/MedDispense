@@ -32,6 +32,7 @@ interface QueueEntry {
 
 interface Prescription {
   id: string;
+  patient_id: string;
   doctor_name: string;
   medication: string;
   dosage: string;
@@ -40,6 +41,8 @@ interface Prescription {
   status: string;
   notes: string | null;
   prescribed_at: string;
+  rejection_reason?: string | null;
+  patient_name?: string;
 }
 
 interface PastVisit {
@@ -91,6 +94,7 @@ const DoctorPanel = () => {
   // Drug check
   const [drugCheckOpen, setDrugCheckOpen] = useState(false);
   const [patientAllergies, setPatientAllergies] = useState<string | null>(null);
+  const [rejectedRx, setRejectedRx] = useState<Prescription[]>([]);
 
   const fetchQueue = async () => {
     const { data, error } = await supabase
@@ -131,6 +135,22 @@ const DoctorPanel = () => {
       });
 
     setQueue(sorted);
+
+    // Also fetch rejected prescriptions for this doctor
+    const doctorName = user?.user_metadata?.full_name || user?.email || "";
+    if (doctorName) {
+      const { data: rejectedData } = await supabase
+        .from("prescriptions")
+        .select("*, profiles!prescriptions_patient_id_fkey(full_name)")
+        .eq("status", "rejected")
+        .ilike("doctor_name", doctorName);
+      
+      setRejectedRx((rejectedData || []).map(r => ({
+        ...r,
+        patient_name: (r as any).profiles?.full_name || "Unknown"
+      })));
+    }
+
     setLoading(false);
   };
 
@@ -261,6 +281,49 @@ const DoctorPanel = () => {
         <h1 className="font-heading text-2xl font-bold">Doctor Panel</h1>
         <p className="text-sm text-muted-foreground">View your patient queue and write prescriptions</p>
       </div>
+
+      {/* Rejected Prescriptions Alerts */}
+      {rejectedRx.length > 0 && (
+        <div className="space-y-3">
+          {rejectedRx.map((rx) => (
+            <motion.div
+              key={rx.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-destructive/50 bg-destructive/5 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-destructive shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-sm text-destructive">Prescription Rejected</h4>
+                  <p className="text-sm">
+                    <strong>{rx.medication}</strong> for <strong>{rx.patient_name}</strong> was rejected.
+                  </p>
+                  {rx.rejection_reason && (
+                    <p className="mt-1 text-xs text-muted-foreground italic">
+                      Reason: {rx.rejection_reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="shrink-0 text-xs border-destructive/20 text-destructive hover:bg-destructive/10"
+                onClick={async () => {
+                  // Acknowledge by deleting or marking as acknowledged
+                  // For now, let's just mark it as acknowledged/ignored if 
+                  // we had a column, but we can just suppress it by changing status
+                  await (supabase as any).from("prescriptions").update({ status: "acknowledged" }).eq("id", rx.id);
+                  fetchQueue();
+                }}
+              >
+                Dismiss
+              </Button>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
