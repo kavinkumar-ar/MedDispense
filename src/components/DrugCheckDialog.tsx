@@ -194,8 +194,8 @@ export const DrugCheckDialog = ({
                 </div>
               )}
 
-              {/* Override section for warnings/dangers */}
-              {result.severity !== "safe" && showOverride && (
+              {/* Override section for warnings/dangers or service errors */}
+              {( (result && result.severity !== "safe") || error ) && showOverride && (
                 <div className="rounded-lg border-2 border-warning p-3 space-y-2">
                   <p className="text-sm font-medium">Override Reason (required):</p>
                   <Textarea
@@ -211,12 +211,25 @@ export const DrugCheckDialog = ({
         </div>
 
         <DialogFooter className="gap-2">
-          {error && (
+          {error && !showOverride && (
             <>
               <Button variant="outline" onClick={onCancel}>Cancel</Button>
               <Button variant="outline" onClick={runCheck}>Retry Check</Button>
               <Button variant="destructive" onClick={() => setShowOverride(true)}>
                 Proceed Anyway
+              </Button>
+            </>
+          )}
+
+          {error && showOverride && (
+            <>
+              <Button variant="outline" onClick={onCancel}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={!overrideReason.trim()}
+                onClick={handleOverride}
+              >
+                Confirm Override & Proceed
               </Button>
             </>
           )}
