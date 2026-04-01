@@ -26,9 +26,9 @@ BEGIN
     END IF;
 
     -- Update Profile names so the demo looks clean
-    UPDATE public.profiles SET full_name = 'Kavin Kumar (Patient)' WHERE user_id = user_1;
+    UPDATE public.profiles SET full_name = 'Kavin Kumar' WHERE user_id = user_1;
     IF user_2 IS NOT NULL THEN
-        UPDATE public.profiles SET full_name = 'Deepak Raj (Patient)' WHERE user_id = user_2;
+        UPDATE public.profiles SET full_name = 'Deepak Raj' WHERE user_id = user_2;
     END IF;
 
     -- CLEAN ACTIVE RECORDS
