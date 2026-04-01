@@ -104,7 +104,7 @@ const PatientDashboard = () => {
     if (!user) return;
     setLoading(true);
 
-    const [queueRes, prescRes, liveQueueRes, billsRes] = await Promise.all([
+    const [queueRes, prescRes, liveQueueRes, billsRes, profileRes] = await Promise.all([
       supabase
         .from("queue_entries")
         .select("*")
@@ -131,9 +131,10 @@ const PatientDashboard = () => {
     if (billsRes.data) setBills(billsRes.data);
     
     if (profileRes.data) {
-      setProfileName(profileRes.data.full_name || "");
-      setProfileAge(profileRes.data.age || "");
-      setProfileAllergies(profileRes.data.allergies || "");
+      const pData = profileRes.data as any;
+      setProfileName(pData.full_name || "");
+      setProfileAge(pData.age ?? "");
+      setProfileAllergies(pData.allergies || "");
     }
     setLoading(false);
   };
@@ -573,7 +574,7 @@ const PatientDashboard = () => {
       </div>
     </div>
 
-      {/* Summary Cards */}
+    {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -793,7 +794,7 @@ const PatientDashboard = () => {
           </div>
         )}
       </motion.div>
-      </div>
+    </div>
 
       {/* Queue History */}
       {queueEntries.filter((e) => e.status === "completed" || e.status === "cancelled").length > 0 && (
