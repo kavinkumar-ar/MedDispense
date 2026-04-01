@@ -55,6 +55,16 @@ interface Prescription {
   status: string;
   notes: string | null;
   prescribed_at: string;
+  quantity_dispensed?: number | null;
+}
+
+interface BillingRecord {
+  id: string;
+  prescription_id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
 }
 
 const statusStyles: Record<string, string> = {
@@ -65,6 +75,7 @@ const statusStyles: Record<string, string> = {
   pending: "bg-warning/10 text-warning",
   dispensed: "bg-success/10 text-success",
   ready: "bg-accent/10 text-accent",
+  rejected: "bg-destructive/10 text-destructive",
 };
 
 const PatientDashboard = () => {
@@ -72,6 +83,7 @@ const PatientDashboard = () => {
   const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
   const [liveQueue, setLiveQueue] = useState<LiveQueueItem[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [bills, setBills] = useState<BillingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,7 +97,7 @@ const PatientDashboard = () => {
     if (!user) return;
     setLoading(true);
 
-    const [queueRes, prescRes, liveQueueRes] = await Promise.all([
+    const [queueRes, prescRes, liveQueueRes, billsRes] = await Promise.all([
       supabase
         .from("queue_entries")
         .select("*")
@@ -97,12 +109,66 @@ const PatientDashboard = () => {
         .eq("patient_id", user.id)
         .order("prescribed_at", { ascending: false }),
       supabase.rpc("get_active_queue"),
+      (supabase as any)
+        .from("billing_records")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (queueRes.data) setQueueEntries(queueRes.data);
     if (prescRes.data) setPrescriptions(prescRes.data);
     if (liveQueueRes.data) setLiveQueue(liveQueueRes.data as LiveQueueItem[]);
+    if (billsRes.data) setBills(billsRes.data);
     setLoading(false);
+  };
+
+  const handleDownloadPrescription = (rx: Prescription) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Prescription - ${rx.medication}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .header { border-bottom: 2px solid #22c55e; padding-bottom: 20px; margin-bottom: 30px; }
+            .hospital-name { font-size: 24px; font-weight: bold; color: #22c55e; }
+            .rx-title { font-size: 20px; margin-bottom: 20px; text-decoration: underline; }
+            .details { margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .medication { font-size: 18px; font-weight: bold; margin: 20px 0; padding: 15px; background: #f0fdf4; border-radius: 8px; }
+            .footer { margin-top: 50px; border-top: 1px solid #eee; pt: 20px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="hospital-name">MedDispense PHARMACY</div>
+            <div>Digital Prescription Record</div>
+          </div>
+          <div class="rx-title">PRESCRIPTION DETAILS</div>
+          <div class="details">
+            <div><strong>Patient ID:</strong> ${user?.id?.slice(0,8) || 'N/A'}</div>
+            <div><strong>Date:</strong> ${new Date(rx.prescribed_at).toLocaleDateString()}</div>
+            <div><strong>Doctor:</strong> ${rx.doctor_name}</div>
+            <div><strong>Status:</strong> ${rx.status.toUpperCase()}</div>
+          </div>
+          <div class="medication">
+            Rx: ${rx.medication} (${rx.dosage})<br/>
+            <small>Frequency: ${rx.frequency} | Duration: ${rx.duration || 'As directed'}</small>
+          </div>
+          ${rx.notes ? `<div style="margin-top: 10px;"><strong>Instructions:</strong> ${rx.notes}</div>` : ''}
+          <div class="footer">
+            This is a computer-generated prescription record from MedDispense AI.
+          </div>
+          <script>
+            window.onload = () => { window.print(); window.close(); };
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   useEffect(() => {
@@ -399,13 +465,78 @@ const PatientDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Prescriptions</p>
-            <p className="text-2xl font-bold">{prescriptions.length}</p>
+            <p className="text-2xl font-bold font-heading">
+              {prescriptions.length}
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Total Bills */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="stat-card flex items-center gap-4"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+            <span className="text-xl font-bold text-success font-heading">₹</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Pending Bills
+            </p>
+            <p className="text-2xl font-bold font-heading text-destructive">
+              ₹{(bills || []).filter(b => b.status === 'pending').reduce((sum, b) => sum + (Number(b.total_amount) || 0), 0).toFixed(2)}
+            </p>
           </div>
         </motion.div>
       </div>
 
-      {/* Active Queue */}
-      <motion.div
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Bills & History */}
+        <motion.div
+           initial={{ opacity: 0, x: -20 }}
+           animate={{ opacity: 1, x: 0 }}
+           transition={{ delay: 0.2 }}
+           className="stat-card"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+              <span className="text-success font-heading font-bold text-lg">₹</span>
+              Bills & Payments
+            </h3>
+          </div>
+          {(!bills || bills.length === 0) ? (
+            <div className="py-8 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20">
+              <p className="text-xs">No billing records found yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {bills.map((bill) => {
+                const rx = (prescriptions || []).find(r => r.id === bill.prescription_id);
+                return (
+                  <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{rx?.medication || 'Medication'}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(bill.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary">₹{(Number(bill.total_amount) || 0).toFixed(2)}</p>
+                      <Badge variant="secondary" className={`text-[9px] h-4 px-1.5 ${bill.status === 'paid' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive animate-pulse'}`}>
+                        {(bill.status || 'PENDING').toUpperCase()}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Active Queue */}
+        <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
@@ -499,6 +630,7 @@ const PatientDashboard = () => {
           </div>
         )}
       </motion.div>
+      </div>
 
       {/* Queue History */}
       {queueEntries.filter((e) => e.status === "completed" || e.status === "cancelled").length > 0 && (
@@ -558,31 +690,39 @@ const PatientDashboard = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="pb-2 font-medium">Medication</th>
-                  <th className="pb-2 font-medium">Dosage</th>
+                  <th className="pb-2 font-medium">Medication & Status</th>
                   <th className="pb-2 font-medium">Frequency</th>
                   <th className="pb-2 font-medium">Doctor</th>
-                  <th className="pb-2 font-medium">Status</th>
                   <th className="pb-2 font-medium">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {prescriptions.map((rx) => (
-                  <tr key={rx.id} className="border-b last:border-0">
-                    <td className="py-3 font-medium">{rx.medication}</td>
-                    <td className="py-3">{rx.dosage}</td>
-                    <td className="py-3">{rx.frequency}</td>
-                    <td className="py-3">{rx.doctor_name}</td>
-                    <td className="py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
-                          statusStyles[rx.status] || "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {rx.status}
-                      </span>
+                  <tr key={rx.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="py-3 pr-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{rx.medication}</p>
+                          <p className="text-[10px] text-muted-foreground">{rx.dosage}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] scale-90 sm:scale-100"
+                            onClick={() => handleDownloadPrescription(rx)}
+                          >
+                            Download
+                          </Button>
+                          <Badge className={`${statusStyles[rx.status] || "bg-muted text-muted-foreground"} text-[10px] px-1.5 py-0`}>
+                            {rx.status}
+                          </Badge>
+                        </div>
+                      </div>
                     </td>
-                    <td className="py-3 text-muted-foreground">
+                    <td className="py-3 text-sm">{rx.frequency}</td>
+                    <td className="py-3 text-sm">{rx.doctor_name}</td>
+                    <td className="py-3 text-sm text-muted-foreground">
                       {new Date(rx.prescribed_at).toLocaleDateString()}
                     </td>
                   </tr>

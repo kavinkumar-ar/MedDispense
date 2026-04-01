@@ -42,6 +42,10 @@ const PharmacistPanel = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectTarget, setRejectTarget] = useState<PrescriptionWithPatient | null>(null);
+  const [billingDialogOpen, setBillingDialogOpen] = useState(false);
+  const [billingTarget, setBillingTarget] = useState<{rx: PrescriptionWithPatient, stock: any} | null>(null);
+  const [dispenseQuantity, setDispenseQuantity] = useState(1);
+  const [isPaid, setIsPaid] = useState(false);
 
   const fetchPending = async () => {
     const { data: rxData } = await supabase
@@ -106,7 +110,7 @@ const PharmacistPanel = () => {
     // Check inventory availability first
     const { data: stockItem } = await supabase
       .from("inventory")
-      .select("id, quantity, medicine_name")
+      .select("id, quantity, medicine_name, unit_price")
       .ilike("medicine_name", rx.medication)
       .maybeSingle();
 
@@ -120,47 +124,91 @@ const PharmacistPanel = () => {
       return;
     }
 
-    // Decrement stock
+    // Open billing dialog instead of direct approval
+    setDispenseQuantity(1);
+    setIsPaid(false);
+    setBillingTarget({ rx, stock: stockItem });
+    setBillingDialogOpen(true);
+  };
+
+  const confirmBillingAndDispense = async () => {
+    if (!billingTarget) return;
+    const { rx, stock: stockItem } = billingTarget;
+    
+    if (dispenseQuantity > stockItem.quantity) {
+      toast.error(`Not enough stock. Only ${stockItem.quantity} units available.`);
+      return;
+    }
+
+    setLoading(true);
+
+    // 1. Create Billing Record
+    const totalPrice = (stockItem.unit_price || 0) * dispenseQuantity;
+    const { data: bill, error: billError } = await (supabase as any)
+      .from("billing_records")
+      .insert({
+        prescription_id: rx.id,
+        patient_id: rx.patient_id,
+        total_amount: totalPrice,
+        status: isPaid ? "paid" : "pending",
+        paid_at: isPaid ? new Date().toISOString() : null,
+      })
+      .select()
+      .single();
+
+    if (billError) {
+      toast.error("Failed to generate bill: " + billError.message);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Decrement stock
     const { error: stockError } = await supabase
       .from("inventory")
-      .update({ quantity: stockItem.quantity - 1 })
+      .update({ 
+        quantity: stockItem.quantity - dispenseQuantity 
+      })
       .eq("id", stockItem.id);
 
     if (stockError) {
       toast.error("Failed to update stock: " + stockError.message);
+      setLoading(false);
       return;
     }
 
-    // Update prescription status
+    // 3. Update prescription status
     const { error } = await supabase
       .from("prescriptions")
-      .update({ status: "dispensed" })
+      .update({ 
+        status: "dispensed",
+        quantity_dispensed: dispenseQuantity
+      })
       .eq("id", rx.id);
 
     if (error) {
       toast.error("Failed to approve: " + error.message);
     } else {
-      const remaining = stockItem.quantity - 1;
-      toast.success(`Prescription for ${rx.medication} approved & dispensed`);
-      if (remaining > 0 && remaining <= 20) {
-        toast.warning(`Low stock alert: "${rx.medication}" has only ${remaining} units left`);
-      }
-      // Log the dispense event to inventory history
+      const remaining = stockItem.quantity - dispenseQuantity;
+      toast.success(`Bill generated for ₹${totalPrice.toFixed(2)}. Prescription dispensed.`);
+      
+      // 4. Log the dispense event to inventory history
       await (supabase as any).from("inventory_history").insert({
         inventory_id: stockItem.id,
         medicine_name: rx.medication,
         change_type: "removed",
         quantity_before: stockItem.quantity,
         quantity_after: remaining,
-        quantity_changed: -1,
-        reason: `Dispensed via prescription #${rx.id.slice(0, 8)}`,
+        quantity_changed: -dispenseQuantity,
+        reason: `Dispensed & Billed via prescription #${rx.id.slice(0, 8)}`,
         performed_by: (await supabase.auth.getUser()).data.user?.id || null,
       });
+
+      setBillingDialogOpen(false);
+      setBillingTarget(null);
       setSelectedRx(null);
-      setDrugCheckOpen(false);
-      setDrugCheckTarget(null);
       fetchPending();
     }
+    setLoading(false);
   };
 
   const handleReject = (rx: PrescriptionWithPatient) => {
@@ -352,23 +400,85 @@ const PharmacistPanel = () => {
             <DialogTitle>Reason for Rejection</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="reason" className="text-sm font-medium text-muted-foreground">
-                Please provide a brief reason for rejecting this prescription:
-              </label>
-              <textarea
-                id="reason"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="e.g. Out of stock, Incorrect dosage, Medical interaction..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-            </div>
+            <textarea
+              className="w-full rounded-md border p-2 text-sm"
+              rows={4}
+              placeholder="Explain why this prescription is being rejected (e.g. dosage too high, medicine out of stock)..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={confirmReject}>Confirm Rejection</Button>
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmReject}>Confirm Reject</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Billing & Dispense Dialog */}
+      <Dialog open={billingDialogOpen} onOpenChange={setBillingDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-primary" />
+              Finalize Billing & Dispense
+            </DialogTitle>
+          </DialogHeader>
+          {billingTarget && (
+            <div className="space-y-6 py-4">
+              <div className="rounded-lg bg-muted p-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Medicine:</span>
+                  <span className="font-semibold">{billingTarget.rx.medication}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Unit Price:</span>
+                  <span className="font-semibold">₹{billingTarget.stock.unit_price?.toFixed(2) || "0.00"}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Quantity to Dispense</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={billingTarget.stock.quantity}
+                    className="w-full rounded-md border p-2"
+                    value={dispenseQuantity}
+                    onChange={(e) => setDispenseQuantity(parseInt(e.target.value) || 1)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Available Stock: {billingTarget.stock.quantity}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="paid-status"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={isPaid}
+                    onChange={(e) => setIsPaid(e.target.checked)}
+                  />
+                  <label htmlFor="paid-status" className="text-sm font-medium">Payment Received</label>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total Amount:</span>
+                    <span className="text-primary">₹{((billingTarget.stock.unit_price || 0) * dispenseQuantity).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setBillingDialogOpen(false)}>Cancel</Button>
+                <Button className="flex-1 gap-2" onClick={confirmBillingAndDispense} disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  Generate Bill & Dispense
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
