@@ -171,6 +171,63 @@ const PatientDashboard = () => {
     printWindow.document.close();
   };
 
+  const handleDownloadBill = (bill: BillingRecord, medication: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Receipt - Bill #${bill.id.slice(0,8)}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .header { border-bottom: 2px solid #22c55e; padding-bottom: 10px; margin-bottom: 30px; }
+            .hospital-name { font-size: 24px; font-weight: bold; color: #22c55e; }
+            .receipt-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; text-align: center; background: #f8fafc; padding: 10px; border-radius: 4px; }
+            .details { margin-bottom: 40px; }
+            .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+            .footer { margin-top: 50px; font-size: 12px; color: #666; text-align: center; }
+            .total { font-size: 22px; font-weight: bold; color: #166534; margin-top: 20px; border-top: 2px solid #22c55e; padding-top: 10px; }
+            .status-paid { color: #16a34a; font-weight: bold; }
+            .status-pending { color: #dc2626; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="hospital-name">MedDispense PHARMACY</div>
+            <div style="font-size: 14px; color: #64748b;">Healthcare & Inventory Solutions</div>
+          </div>
+          
+          <div class="receipt-title">OFFICIAL INVOICE</div>
+          
+          <div class="details">
+            <div class="row"><span><strong>Bill ID:</strong></span><span>#${bill.id.slice(0,8)}</span></div>
+            <div class="row"><span><strong>Date:</strong></span><span>${new Date(bill.created_at).toLocaleDateString()}</span></div>
+            <div class="row"><span><strong>Patient ID:</strong></span><span>${user?.id?.slice(0,8) || 'N/A'}</span></div>
+            <div class="row" style="margin-top: 20px;"><span><strong>Item:</strong></span><span>${medication}</span></div>
+            <div class="row"><span><strong>Payment Status:</strong></span><span class="${bill.status === 'paid' ? 'status-paid' : 'status-pending'}">${bill.status.toUpperCase()}</span></div>
+            
+            <div class="row total">
+              <span>Grand Total</span>
+              <span>₹${(Number(bill.total_amount) || 0).toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            Thank you for choosing MedDispense.<br/>
+            This is a computer-generated digital invoice.
+          </div>
+          
+          <script>
+            window.onload = () => { window.print(); window.close(); };
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     fetchData();
 
@@ -522,11 +579,21 @@ const PatientDashboard = () => {
                         {new Date(bill.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-primary">₹{(Number(bill.total_amount) || 0).toFixed(2)}</p>
-                      <Badge variant="secondary" className={`text-[9px] h-4 px-1.5 ${bill.status === 'paid' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive animate-pulse'}`}>
-                        {(bill.status || 'PENDING').toUpperCase()}
-                      </Badge>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-primary">₹{(Number(bill.total_amount) || 0).toFixed(2)}</p>
+                        <Badge variant="secondary" className={`text-[9px] h-4 px-1.5 ${bill.status === 'paid' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive animate-pulse'}`}>
+                          {(bill.status || 'PENDING').toUpperCase()}
+                        </Badge>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => handleDownloadBill(bill, rx?.medication || 'Medication')}
+                      >
+                        <Plus className="h-4 w-4 rotate-45" /> {/* Using Plus rotated as a subtle download indicator, or fileicon if preferred */}
+                      </Button>
                     </div>
                   </div>
                 );
