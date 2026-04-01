@@ -95,6 +95,7 @@ const DoctorPanel = () => {
   const [drugCheckOpen, setDrugCheckOpen] = useState(false);
   const [patientAllergies, setPatientAllergies] = useState<string | null>(null);
   const [rejectedRx, setRejectedRx] = useState<Prescription[]>([]);
+  const [fixingPrescriptionId, setFixingPrescriptionId] = useState<string | null>(null);
 
   const fetchQueue = async () => {
     const { data, error } = await supabase
@@ -235,7 +236,34 @@ const DoctorPanel = () => {
     setPatientHistory([]);
     setPastVisits([]);
     setPrescriptionOpen(true);
+    setFixingPrescriptionId(null); // Clear any previous fixing state
     fetchPatientHistory(entry.patient_id);
+  };
+
+  const handleFixPrescription = (rx: Prescription) => {
+    // Construct a minimal QueueEntry for the dialog
+    setSelectedPatient({
+      id: "fixing", // special ID to indicate it's not from queue
+      patient_id: rx.patient_id,
+      patient_name: rx.patient_name || "Unknown",
+      token_number: "RE-RX",
+      priority: "normal",
+      status: "in_progress",
+      reason: "Re-prescribing rejected medication",
+      created_at: new Date().toISOString(),
+    } as any);
+
+    // Pre-fill form
+    setMedication(rx.medication);
+    setDosage(rx.dosage);
+    setFrequency(rx.frequency);
+    setDuration(rx.duration || "");
+    setNotes(rx.notes || "");
+    setFixingPrescriptionId(rx.id);
+    
+    // Open dialog and fetch history
+    setPrescriptionOpen(true);
+    fetchPatientHistory(rx.patient_id);
   };
 
   const handlePrescribeClick = () => {
@@ -261,13 +289,23 @@ const DoctorPanel = () => {
       status: "pending",
     });
 
-    setSubmitting(false);
-
     if (error) {
+      setSubmitting(false);
       toast({ title: "Error", description: "Failed to create prescription", variant: "destructive" });
       return;
     }
 
+    // If we were fixing an old one, acknowledge it now
+    if (fixingPrescriptionId) {
+      await supabase
+        .from("prescriptions")
+        .update({ status: "acknowledged" })
+        .eq("id", fixingPrescriptionId);
+      setFixingPrescriptionId(null);
+    }
+
+    setSubmitting(false);
+    fetchQueue();
     toast({ title: "Prescription created", description: `${medication} prescribed to ${selectedPatient.patient_name}` });
     setPrescriptionOpen(false);
   };
@@ -306,20 +344,28 @@ const DoctorPanel = () => {
                   )}
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="shrink-0 text-xs border-destructive/20 text-destructive hover:bg-destructive/10"
-                onClick={async () => {
-                  // Acknowledge by deleting or marking as acknowledged
-                  // For now, let's just mark it as acknowledged/ignored if 
-                  // we had a column, but we can just suppress it by changing status
-                  await (supabase as any).from("prescriptions").update({ status: "acknowledged" }).eq("id", rx.id);
-                  fetchQueue();
-                }}
-              >
-                Dismiss
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="text-xs h-8"
+                  onClick={() => handleFixPrescription(rx)}
+                >
+                  <Pill className="mr-1 h-3 w-3" />
+                  Fix & Re-prescribe
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs h-8 border-destructive/20 text-destructive hover:bg-destructive/10"
+                  onClick={async () => {
+                    await (supabase as any).from("prescriptions").update({ status: "acknowledged" }).eq("id", rx.id);
+                    fetchQueue();
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </div>
             </motion.div>
           ))}
         </div>
