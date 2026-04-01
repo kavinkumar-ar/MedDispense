@@ -139,20 +139,19 @@ const DoctorPanel = () => {
 
     // Also fetch rejected prescriptions for this doctor
     if (user?.id) {
-      let query = supabase
+      const doctorName = user?.user_metadata?.full_name || user?.email || "";
+      let baseQuery = (supabase as any)
         .from("prescriptions")
         .select("*, profiles!prescriptions_patient_id_fkey(full_name)")
         .eq("status", "rejected");
       
-      // Filter by doctor_id OR doctor_name fallback for legacy records
-      const doctorName = user?.user_metadata?.full_name || user?.email || "";
       if (doctorName) {
-        query = query.or(`doctor_id.eq.${user.id},doctor_name.ilike.${doctorName}`);
+        baseQuery = baseQuery.or(`doctor_id.eq.${user.id},doctor_name.ilike.%${doctorName}%`);
       } else {
-        query = query.eq("doctor_id", user.id);
+        baseQuery = baseQuery.eq("doctor_id", user.id);
       }
 
-      const { data: rejectedData } = await query;
+      const { data: rejectedData } = await baseQuery;
       
       setRejectedRx((rejectedData || []).map(r => ({
         ...r,
@@ -289,7 +288,7 @@ const DoctorPanel = () => {
 
     const doctorProfile = user?.user_metadata?.full_name || user?.email || "Doctor";
 
-    const { error } = await supabase.from("prescriptions").insert({
+    const { error } = await (supabase as any).from("prescriptions").insert({
       patient_id: selectedPatient.patient_id,
       doctor_id: user?.id,
       doctor_name: doctorProfile,
