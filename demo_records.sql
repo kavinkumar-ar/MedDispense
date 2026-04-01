@@ -9,23 +9,31 @@ VALUES
 ON CONFLICT (medicine_name) DO UPDATE 
 SET quantity = EXCLUDED.quantity, unit_price = EXCLUDED.unit_price;
 
--- 2. ADD PATIENTS TO QUEUE
-INSERT INTO public.queue_entries (token_number, patient_id, priority, status, reason)
-VALUES 
-('T-1001', gen_random_uuid(), 'normal', 'waiting', 'Regular fever checkup'),
-('T-1002', gen_random_uuid(), 'urgent', 'waiting', 'Acute stomach pain'),
-('T-1003', gen_random_uuid(), 'normal', 'in_progress', 'Follow-up consultation');
-
--- 3. ADD A COMPLETED VISIT (WITH BILL & DOWNLOADABLE RX)
+-- 2. DYNAMICALLY ADD RECORDS USING YOUR EXISTING USER ID
 DO $$ 
 DECLARE
-    demo_patient_id uuid := gen_random_uuid(); 
+    real_user_id uuid;
     rx_id uuid;
 BEGIN
+    -- This looks for the first available user in your system
+    SELECT id INTO real_user_id FROM auth.users LIMIT 1;
+
+    IF real_user_id IS NULL THEN
+        RAISE EXCEPTION 'ERROR: No users found. Please create at least one account first!';
+    END IF;
+
+    -- Add Patients to Queue
+    INSERT INTO public.queue_entries (token_number, patient_id, priority, status, reason)
+    VALUES 
+    ('T-1001', real_user_id, 'normal', 'waiting', 'Regular fever checkup'),
+    ('T-1002', real_user_id, 'urgent', 'waiting', 'Acute stomach pain');
+
+    -- Add a Completed Consultation & Bill
     INSERT INTO public.prescriptions (patient_id, doctor_name, medication, dosage, frequency, duration, status)
-    VALUES (demo_patient_id, 'Dr. Sharmila', 'Amoxicillin 500mg', '1 tablet', 'Twice daily', '5 days', 'dispensed')
+    VALUES (real_user_id, 'Dr. Sharmila', 'Amoxicillin 500mg', '1 tablet', 'Twice daily', '5 days', 'dispensed')
     RETURNING id INTO rx_id;
 
     INSERT INTO public.billing_records (prescription_id, patient_id, total_amount, status)
-    VALUES (rx_id, demo_patient_id, 125.00, 'paid');
+    VALUES (rx_id, real_user_id, 125.50, 'paid');
+
 END $$;
