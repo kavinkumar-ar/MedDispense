@@ -9,31 +9,35 @@ VALUES
 ON CONFLICT (medicine_name) DO UPDATE 
 SET quantity = EXCLUDED.quantity, unit_price = EXCLUDED.unit_price;
 
--- 2. DYNAMICALLY ADD RECORDS USING YOUR EXISTING USER ID
+-- 2. CREATE MOCK SESSIONS & NAMES
 DO $$ 
 DECLARE
-    real_user_id uuid;
+    p1_id uuid := '44444444-4444-4444-4444-444444444444';
+    p2_id uuid := '55555555-5555-5555-5555-555555555555';
+    p3_id uuid := '66666666-6666-6666-6666-666666666666';
     rx_id uuid;
 BEGIN
-    -- This looks for the first available user in your system
-    SELECT id INTO real_user_id FROM auth.users LIMIT 1;
+    -- Ensure mock profiles exist so names show up
+    INSERT INTO public.profiles (user_id, full_name, age) VALUES 
+    (p1_id, 'Kavin Kumar (Mock)', 24),
+    (p2_id, 'Deepak Raj (Mock)', 32),
+    (p3_id, 'Saritha (Mock)', 45)
+    ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
-    IF real_user_id IS NULL THEN
-        RAISE EXCEPTION 'ERROR: No users found. Please create at least one account first!';
-    END IF;
-
-    -- Add Patients to Queue
+    -- Add them to the live Queue
+    DELETE FROM public.queue_entries WHERE token_number IN ('T-101', 'T-102', 'T-103');
     INSERT INTO public.queue_entries (token_number, patient_id, priority, status, reason)
     VALUES 
-    ('T-1001', real_user_id, 'normal', 'waiting', 'Regular fever checkup'),
-    ('T-1002', real_user_id, 'urgent', 'waiting', 'Acute stomach pain');
+    ('T-101', p1_id, 'normal', 'waiting', 'Regular fever checkup'),
+    ('T-102', p2_id, 'urgent', 'in_progress', 'Acute stomach pain'),
+    ('T-103', p3_id, 'elderly', 'waiting', 'Blood pressure check');
 
-    -- Add a Completed Consultation & Bill
+    -- Create a Completed Visit for the first patient (demo billing)
     INSERT INTO public.prescriptions (patient_id, doctor_name, medication, dosage, frequency, duration, status)
-    VALUES (real_user_id, 'Dr. Sharmila', 'Amoxicillin 500mg', '1 tablet', 'Twice daily', '5 days', 'dispensed')
+    VALUES (p1_id, 'Dr. Sharmila', 'Amoxicillin 500mg', '1 tablet', 'Twice daily', '5 days', 'dispensed')
     RETURNING id INTO rx_id;
 
     INSERT INTO public.billing_records (prescription_id, patient_id, total_amount, status)
-    VALUES (rx_id, real_user_id, 125.50, 'paid');
+    VALUES (rx_id, p1_id, 125.50, 'paid');
 
 END $$;
