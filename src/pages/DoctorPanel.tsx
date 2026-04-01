@@ -178,19 +178,31 @@ const DoctorPanel = () => {
   }, []);
 
   const handleStartConsultation = async (entry: QueueEntry) => {
-    await supabase
+    const { error } = await supabase
       .from("queue_entries")
       .update({ status: "in_progress" })
       .eq("id", entry.id);
-    toast({ title: "Consultation started", description: `Now seeing ${entry.patient_name}` });
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to start consultation", variant: "destructive" });
+    } else {
+      toast({ title: "Consultation started", description: `Now seeing ${entry.patient_name}` });
+      fetchQueue();
+    }
   };
 
   const handleCompleteConsultation = async (entry: QueueEntry) => {
-    await supabase
+    const { error } = await supabase
       .from("queue_entries")
       .update({ status: "completed" })
       .eq("id", entry.id);
-    toast({ title: "Consultation completed", description: `${entry.patient_name} marked as done` });
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to complete consultation", variant: "destructive" });
+    } else {
+      toast({ title: "Consultation completed", description: `${entry.patient_name} marked as done` });
+      fetchQueue();
+    }
   };
 
   const openPrescriptionDialog = (entry: QueueEntry) => {

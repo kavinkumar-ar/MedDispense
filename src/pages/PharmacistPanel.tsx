@@ -156,6 +156,7 @@ const PharmacistPanel = () => {
       setSelectedRx(null);
       setDrugCheckOpen(false);
       setDrugCheckTarget(null);
+      fetchPending();
     }
   };
 
@@ -170,6 +171,7 @@ const PharmacistPanel = () => {
     } else {
       toast.success(`Prescription for ${rx.medication} rejected`);
       setSelectedRx(null);
+      fetchPending();
     }
   };
 
